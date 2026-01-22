@@ -1,0 +1,87 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 2rem;
+}
+
+h1 {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+/* Center headers for map & recent removals */
+h2 {
+    text-align: center;
+    margin-top: 2rem;   /* space above header */
+    margin-bottom: 1rem; /* space below header */
+}
+
+/* Add extra space between main tables and recently removed section */
+#recent-removed-section {
+    margin-top: 3rem;
+}
+
+.dataTables_wrapper {
+  margin-top: 1rem;
+}
+
+#state-map {
+  height: 420px;
+  margin-top: 1.5rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+/* Remove black focus rectangle around states */
+.leaflet-interactive:focus {
+    outline: none !important;
+}
+
+/* Container to center toggle buttons */
+.toggle-buttons {
+    display: flex;
+    justify-content: center;
+    margin: 1.5rem 0;
+}
+
+/* Base button style */
+.toggle-buttons button {
+    border: 1px solid #ccc;
+    background-color: #f0f0f0;
+    padding: 0.6rem 1.5rem;
+    cursor: pointer;
+    font-size: 1rem;
+    margin: 0;
+    outline: none;
+    transition: background-color 0.2s, color 0.2s;
+    min-width: 120px;          /* consistent width */
+    text-align: center;
+}
+
+/* Left button: round left corners only */
+.toggle-buttons button:first-child {
+    border-radius: 12px 0 0 12px;
+    border-right: none; /* remove double border where buttons touch */
+}
+
+/* Right button: round right corners only */
+.toggle-buttons button:last-child {
+    border-radius: 0 12px 12px 0;
+}
+
+/* Highlight selected button */
+.toggle-buttons button.active {
+    background-color: #2171b5;
+    color: white;
+    font-weight: 600;
+    box-shadow: inset 0 -2px 0 rgba(0,0,0,0.2); /* subtle pressed effect */
+}
+
+/* Hover effect for non-active buttons */
+.toggle-buttons button:hover:not(.active) {
+    background-color: #dbe9f7;
+}
+
+/* Optional: subtle focus outline for accessibility */
+.toggle-buttons button:focus {
+    box-shadow: 0 0 0 3px rgba(33,113,181,0.3);
+}
