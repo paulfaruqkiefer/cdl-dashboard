@@ -25,8 +25,9 @@ h2 {
 }
 
 #state-map {
+  width: 80%;
   height: 420px;
-  margin-top: 1.5rem;
+    margin: 1.5rem auto 0 auto; /* center horizontally */
   border: 1px solid #ccc;
   border-radius: 6px;
 }

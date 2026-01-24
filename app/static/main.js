@@ -2,7 +2,6 @@ let currentStatus = "in_review";
 let table;
 let map;
 let geojsonLayer;
-let legend;
 let currentData = [];
 let selectedState = null;
 
@@ -27,15 +26,14 @@ function countByState(data) {
     return counts;
 }
 
-// Color scale
-// Color scale for provider counts (orange palette)
+// Color scale for provider counts
 function getColor(count) {
-    return count > 200 ? "#7f2704" :   // darkest orange
+    return count > 200 ? "#7f2704" :
            count > 100 ? "#cc4c02" :
            count > 50  ? "#ec7014" :
            count > 20  ? "#fe9929" :
-           count > 0   ? "#fdd49e" :     // lightest orange
-                         "#f0f0f0";      // grey for zero
+           count > 0   ? "#fdd49e" :
+                         "#f0f0f0";
 }
 
 /* ==========================
@@ -50,30 +48,45 @@ function loadTable(status, stateFilter = null) {
         $("#providers-table tbody").empty();
     }
 
-    $.getJSON(`/api/providers/${status}`, function(data) {
-        currentData = data;
+   $.getJSON(`/api/providers/${status}`, function(data) {
+    currentData = data;
 
-        const filtered = stateFilter
-            ? data.filter(d => normalizeState(d.State) === stateFilter)
-            : data;
+    const filtered = stateFilter
+        ? data.filter(d => normalizeState(d.State) === stateFilter)
+        : data;
 
-        table = $("#providers-table").DataTable({
-            data: filtered,
-            columns: [
-                { data: "Provider Name" },
-                { data: "City" },
-                { data: "State" },
-                { data: "Last Updated" },
-                { data: "Reason" }
-            ],
-            pageLength: 25,
-            lengthMenu: [10, 25, 50, 100],
-            order: [[3, "desc"]],
-            responsive: true
-        });
+    //  IF EMPTY: inject a placeholder row
+    const tableData = filtered.length === 0
+        ? [{
+            "Provider Name": "—",
+            "City": "—",
+            "State": "—",
+            "Last Updated": "—",
+            "Reason": "No providers have been removed yet"
+        }]
+        : filtered;
 
-        updateMap();
+    table = $("#providers-table").DataTable({
+        data: tableData,
+        columns: [
+            { data: "Provider Name" },
+            { data: "City" },
+            { data: "State" },
+            { data: "Last Updated" },
+            { data: "Reason" }
+        ],
+        pageLength: 25,
+        lengthMenu: [10, 25, 50, 100],
+        order: filtered.length === 0 ? [] : [[3, "desc"]],
+        responsive: true,
+        searching: filtered.length !== 0,
+        paging: filtered.length !== 0,
+        info: filtered.length !== 0
     });
+
+    updateMap();
+});
+
 }
 
 /* ==========================
@@ -81,24 +94,44 @@ function loadTable(status, stateFilter = null) {
 ========================== */
 
 function initMap() {
+    // Initialize map without any basemap
     map = L.map("state-map", {
         zoomControl: true,
-        scrollWheelZoom: false
-    }).setView([37.8, -96], 4);
+        scrollWheelZoom: false,
+        attributionControl: false
+    });
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "© OpenStreetMap"
-    }).addTo(map);
+    // Set initial view: center on lower 48, zoom level 5 (tweak as needed)
+    map.setView([39.8, -98.5], 4);
 
+    // Load US states GeoJSON
     $.getJSON("/static/us-states.json", function(states) {
         geojsonLayer = L.geoJSON(states, {
             style: baseStyle,
             onEachFeature: onEachState
         }).addTo(map);
 
+        // Apply initial coloring based on currentData (even if empty at first)
+        updateMap();
+
+        // Add your legend
         addLegend();
     });
 }
+
+
+
+// Helper to flatten GeoJSON coordinates (handles Polygons and MultiPolygons)
+function flattenCoords(coords) {
+    if (!Array.isArray(coords[0][0])) {
+        // Polygon: [[lng, lat], ...]
+        return coords.map(c => L.latLng(c[1], c[0]));
+    } else {
+        // MultiPolygon: [[[lng, lat], ...], ...]
+        return coords.flatMap(p => p.map(c => L.latLng(c[1], c[0])));
+    }
+}
+
 
 function baseStyle(feature) {
     return {
@@ -169,12 +202,8 @@ function applyStateColor(layer) {
 function updateMap() {
     if (!geojsonLayer) return;
 
-    geojsonLayer.eachLayer(layer => {
-        applyStateColor(layer);
-    });
+    geojsonLayer.eachLayer(layer => applyStateColor(layer));
 }
-
-
 
 /* ==========================
    TOGGLE BUTTONS
@@ -189,6 +218,7 @@ $(".toggle-buttons button").click(function() {
     const status = this.id === "btn-in-review" ? "in_review" : "removed";
     loadTable(status);
 });
+
 
 /* ==========================
    INIT

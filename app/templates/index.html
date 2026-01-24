@@ -3,13 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <title>CDL Providers</title>
+
   <!-- DataTables CSS -->
   <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+
+  <!-- Custom CSS -->
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+  <!-- Mapbox GL JS CSS & JS -->
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.22.0/mapbox-gl.css" rel="stylesheet" />
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.22.0/mapbox-gl.js"></script>
+
+  <!-- Leaflet CSS & JS (optional fallback) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+  <!-- Inline CSS for special styles -->
   <style>
     /* Highlight status */
-    .status-in-review { background-color: #fff3cd; }  /* yellow-ish */
-    .status-removed { background-color: #f8d7da; }    /* red-ish */
+    .status-in-review { background-color: #fff3cd; }
+    .status-removed { background-color: #f8d7da; }
 
     /* Center headers */
     h1, h2 {
@@ -18,19 +31,19 @@
       margin-bottom: 3rem;
     }
 
-    /* Add spacing between main table and recently removed section */
-    #removals-table, #removals-chart {
-      margin-top: 2rem;
-      margin-bottom: 2rem;
+    /* Map height */
+    #state-map {
+      height: 420px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      margin-bottom: 1rem;
     }
   </style>
-  <!-- Leaflet CSS & JS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 </head>
 <body>
   <main>
     <h1>CDL Training Providers</h1>
+
     <div class="toggle-buttons">
       <button id="btn-in-review" class="active">In Review</button>
       <button id="btn-removed">Removed</button>
@@ -54,29 +67,16 @@
     </table>
   </main>
 
-  <h2>Providers Recently Removed</h2>
-  <table id="removals-table" class="display" style="width:100%">
-    <thead>
-      <tr>
-        <th>Provider Name</th>
-        <th>City</th>
-        <th>State</th>
-        <th>Last Updated</th>
-        <th>Reason</th>
-        <th>Removal Date</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-
-  <canvas id="removals-chart" width="400" height="150"></canvas>
-
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <!-- jQuery & DataTables JS -->
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+
+  <!-- Custom JS -->
   <script src="{{ url_for('static', filename='main.js') }}"></script>
 </body>
 </html>
+
+

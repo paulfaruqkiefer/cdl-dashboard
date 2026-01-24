@@ -2,15 +2,27 @@ from flask import Flask, render_template, jsonify
 import pandas as pd
 import os
 import glob
+from pathlib import Path
+
+# ----------------------------
+# App + paths
+# ----------------------------
 
 app = Flask(__name__)
 
-# Path to the data folder
-DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
+# Project root (…/cdl-dashboard)
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+# data/
+DATA_DIR = BASE_DIR / "data"
+
+# ----------------------------
+# Helpers
+# ----------------------------
 
 def latest_file(folder, pattern="*.csv"):
     """Return the latest file in a folder matching a pattern, or None."""
-    files = glob.glob(os.path.join(folder, pattern))
+    files = glob.glob(str(Path(folder) / pattern))
     if not files:
         return None
     return max(files, key=os.path.getmtime)
@@ -26,25 +38,32 @@ def simplify_df(df, status_label):
         "ProviderUpdatedOn": "Last Updated",
         "RemoveReason": "Reason"
     })
+
     # Simplify Last Updated to YYYY-MM-DD
-    df["Last Updated"] = pd.to_datetime(df["Last Updated"], errors="coerce").dt.date.astype(str)
+    df["Last Updated"] = (
+        pd.to_datetime(df["Last Updated"], errors="coerce")
+        .dt.date
+        .astype(str)
+    )
+
     # Title-case city names
-    df["City"] = df["City"].str.title()
+    if "City" in df.columns:
+        df["City"] = df["City"].str.title()
+
     df["Status"] = status_label
+
     return df[["Provider Name", "City", "State", "Last Updated", "Reason", "Status"]]
 
 def load_data(status=None):
     """
     Load latest CSVs.
     status: 'in_review', 'removed', or None for both combined.
-    Returns a DataFrame with columns:
-    ['Provider Name', 'City', 'State', 'Last Updated', 'Reason', 'Status']
     """
     dataframes = []
 
     # In Review
     if status in [None, "in_review"]:
-        in_review_csv = latest_file(os.path.join(DATA_DIR, "outputs_in_review"))
+        in_review_csv = latest_file(DATA_DIR / "outputs_in_review")
         if in_review_csv:
             df_in_review = pd.read_csv(in_review_csv)
             df_in_review = simplify_df(df_in_review, "In Review")
@@ -52,7 +71,7 @@ def load_data(status=None):
 
     # Removed
     if status in [None, "removed"]:
-        removed_csv = latest_file(os.path.join(DATA_DIR, "outputs_removed"))
+        removed_csv = latest_file(DATA_DIR / "outputs_removed")
         if removed_csv:
             df_removed = pd.read_csv(removed_csv)
             df_removed = simplify_df(df_removed, "Removed")
@@ -62,7 +81,14 @@ def load_data(status=None):
         combined = pd.concat(dataframes, ignore_index=True)
         combined.fillna("", inplace=True)
         return combined
-    return pd.DataFrame(columns=["Provider Name", "City", "State", "Last Updated", "Reason", "Status"])
+
+    return pd.DataFrame(
+        columns=["Provider Name", "City", "State", "Last Updated", "Reason", "Status"]
+    )
+
+# ----------------------------
+# Routes
+# ----------------------------
 
 @app.route("/")
 def index():
@@ -77,14 +103,14 @@ def providers_api(status=None):
 def load_removals():
     """
     Compare master CSVs and return providers that shifted from In Review → Removed.
-    Returns a DataFrame with columns:
-    ['Provider Name', 'City', 'State', 'Last Updated', 'Reason', 'Removal Date']
     """
-    in_review_master = os.path.join(DATA_DIR, "outputs_in_review", "master_fmcsa_in_review.csv")
-    removed_master = os.path.join(DATA_DIR, "outputs_removed", "master_fmcsa_removed.csv")
+    in_review_master = DATA_DIR / "outputs_in_review" / "master_fmcsa_in_review.csv"
+    removed_master = DATA_DIR / "outputs_removed" / "master_fmcsa_removed.csv"
 
-    if not os.path.exists(in_review_master) or not os.path.exists(removed_master):
-        return pd.DataFrame(columns=["Provider Name", "City", "State", "Last Updated", "Reason", "Removal Date"])
+    if not in_review_master.exists() or not removed_master.exists():
+        return pd.DataFrame(
+            columns=["Provider Name", "City", "State", "Last Updated", "Reason", "Removal Date"]
+        )
 
     df_in_review = pd.read_csv(in_review_master)
     df_removed = pd.read_csv(removed_master)
@@ -100,11 +126,17 @@ def load_removals():
             "ProviderUpdatedOn": "Last Updated",
             "RemoveReason": "Reason"
         })
+
         shifted["City"] = shifted["City"].str.title()
-        shifted["Removal Date"] = pd.to_datetime(shifted["Last Updated"], errors="coerce").dt.date.astype(str)
-        shifted = shifted[["Provider Name", "City", "State", "Last Updated", "Reason", "Removal Date"]]
-    else:
-        shifted = pd.DataFrame(columns=["Provider Name", "City", "State", "Last Updated", "Reason", "Removal Date"])
+        shifted["Removal Date"] = (
+            pd.to_datetime(shifted["Last Updated"], errors="coerce")
+            .dt.date
+            .astype(str)
+        )
+
+        shifted = shifted[
+            ["Provider Name", "City", "State", "Last Updated", "Reason", "Removal Date"]
+        ]
 
     return shifted
 
@@ -113,5 +145,10 @@ def removals_api():
     df = load_removals()
     return jsonify(df.to_dict(orient="records"))
 
+# ----------------------------
+# Entry point (Render-safe)
+# ----------------------------
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
