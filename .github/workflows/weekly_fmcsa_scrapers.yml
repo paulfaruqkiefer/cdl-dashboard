@@ -36,15 +36,28 @@ jobs:
           pip install -r requirements.txt
 
       # -----------------------------
-      # Run scrapers
+      # Run main FMCSA scraper
+      # -----------------------------
+      - name: Run FMCSA main scraper
+        run: python scripts/fmcsa_scraper.py
+
+      # -----------------------------
+      # Run FMCSA training locations scraper
       # -----------------------------
       - name: Run FMCSA training location scraper
-        run: |
-          python scripts/fmcsa_training_location_scraper.py
+        run: python scripts/fmcsa_training_location_scraper.py
 
-      - name: Run FMCSA main scraper
-        run: |
-          python scripts/fmcsa_scraper.py
+      # -----------------------------
+      # Geocode new cities only
+      # -----------------------------
+      - name: Geocode new cities
+        run: python scripts/geocode_all_cities.py
+
+      # -----------------------------
+      # Fix geocode cache manually
+      # -----------------------------
+      - name: Fix geocode cache
+        run: python scripts/fix_geocode_cache.py
 
       # -----------------------------
       # Log diffs (week-to-week changes)
@@ -78,6 +91,3 @@ jobs:
         with:
           name: weekly-diff
           path: diff.txt
-
-     
-    
