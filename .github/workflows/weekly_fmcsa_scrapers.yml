@@ -1,44 +1,83 @@
-name: Weekly FMCSA scrapers
+name: FMCSA weekly scraper
 
 on:
   schedule:
-    # Every Tuesday at 12:00 PM Central Time
-    # GitHub Actions uses UTC → 18:00 UTC = 12:00 CT
-    - cron: '0 18 * * 2'
+    # Every Tuesday at 12:00 PM UTC
+    # NOTE: GitHub Actions uses UTC.
+    # Noon Central = 18:00 UTC (standard time)
+    # Noon Eastern = 17:00 UTC
+    - cron: "0 18 * * 2"
 
-  # Allows manual runs from the Actions tab
-  workflow_dispatch:
+  workflow_dispatch: {}  # allows manual runs
 
 jobs:
   run-scrapers:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out repository
+      # -----------------------------
+      # Check out repo
+      # -----------------------------
+      - name: Checkout repository
         uses: actions/checkout@v4
 
+      # -----------------------------
+      # Set up Python + cache deps
+      # -----------------------------
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
+          python-version: "3.11"
+          cache: "pip"
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install requests beautifulsoup4
+          pip install -r requirements.txt
 
-      - name: Run FMCSA training locations scraper
+      # -----------------------------
+      # Run scrapers
+      # -----------------------------
+      - name: Run FMCSA training location scraper
         run: |
-          python scripts/fmcsa_training_locations_scraper.py
+          python scripts/fmcsa_training_location_scraper.py
 
       - name: Run FMCSA main scraper
         run: |
           python scripts/fmcsa_scraper.py
 
-      - name: Commit and push updated data
+      # -----------------------------
+      # Log diffs (week-to-week changes)
+      # -----------------------------
+      - name: Show file diffs
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/outputs_current
-          git commit -m "Weekly FMCSA data update" || exit 0
-          git push
+          git status
+          git diff > diff.txt || true
+          cat diff.txt
+
+      # -----------------------------
+      # Commit changes if any
+      # -----------------------------
+      - name: Commit and push changes
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git config user.name "github-actions"
+            git config user.email "github-actions@github.com"
+            git add .
+            git commit -m "Weekly FMCSA data update"
+            git push
+          else
+            echo "No changes to commit"
+          fi
+
+      # -----------------------------
+      # Upload diff as artifact
+      # -----------------------------
+      - name: Upload diff artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-diff
+          path: diff.txt
+
+     
+    
