@@ -13,6 +13,8 @@ on:
 jobs:
   run-scrapers:
     runs-on: ubuntu-latest
+    env:
+      MAPBOX_TOKEN: ${{ secrets.MAPBOX_TOKEN }}  # <-- Add this
 
     steps:
     
