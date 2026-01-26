@@ -12,8 +12,10 @@ app = Flask(__name__)
 # ----------------------------
 # Paths & Environment
 # ----------------------------
-BASE_DIR = Path(__file__).resolve().parent.parent  # moves up one level
-DATA_DIR = Path("/data")
+
+REPO_ROOT = Path(__file__).resolve().parent.parent  # Go up from app/ to root
+
+DATA_DIR = REPO_ROOT / "data"
 
 # ----------------------------
 # Helpers
