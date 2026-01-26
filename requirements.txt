@@ -1,7 +1,7 @@
-Flask==2.3.3
-pandas==2.1.1
-geopy==2.6.0
-requests==2.31.0
-beautifulsoup4==4.12.2
-tqdm==4.66.0
-gunicorn==21.2.2
+Flask>=2.3,<4
+gunicorn
+pandas
+requests
+beautifulsoup4
+tqdm
+geopy
