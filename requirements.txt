@@ -5,7 +5,11 @@ requests
 beautifulsoup4
 tqdm
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 geopy
+=======
+geopy>=2.5,<3
+>>>>>>> Stashed changes
 =======
 geopy>=2.5,<3
 >>>>>>> Stashed changes
