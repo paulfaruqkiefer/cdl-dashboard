@@ -3,16 +3,16 @@ import pandas as pd
 import os
 from pathlib import Path
 from datetime import datetime, timedelta
+import pickle
+import time
+from geopy.geocoders import Nominatim
 
 app = Flask(__name__)
 
-@app.route("/")
-def index():
-    # Look for token in environment variable, or provide a default for local dev
-    token = os.environ.get("MAPBOX_TOKEN") or "YOUR_LOCAL_MAPBOX_TOKEN"
-    return render_template("index.html", mapbox_token=token)
-
-BASE_DIR = Path(__file__).resolve().parent.parent
+# ----------------------------
+# Paths & Environment
+# ----------------------------
+BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
 
 # ----------------------------
@@ -52,10 +52,6 @@ def load_data(status=None):
 
 
 def get_removals(state_filter=None):
-    """
-    Return all removed providers (for metrics or chart), optionally filtered by state.
-    Handles CSV state formats like 'CA (California)'.
-    """
     removed_file = DATA_DIR / "outputs_removed" / "master_fmcsa_removed.csv"
     if not removed_file.exists():
         return pd.DataFrame(columns=["Provider Name", "City", "State", "Last Updated", "Reason", "Removal Date"])
@@ -67,28 +63,22 @@ def get_removals(state_filter=None):
         "ProviderUpdatedOn": "Last Updated",
         "RemoveReason": "Reason"
     })
-
     if "City" in df.columns:
         df["City"] = df["City"].str.title()
-
     df["Removal Date"] = pd.to_datetime(df["Last Updated"], errors="coerce").dt.date
-
-    # Normalize state name to plain form
-    df["State"] = (
-    df["State"]
-      .str.replace(r"\s*\([A-Z]{2}\)$", "", regex=True)
-      .str.strip()
-)
-
+    df["State"] = df["State"].str.replace(r"\s*\([A-Z]{2}\)$", "", regex=True).str.strip()
     if state_filter:
         df = df[df["State"].str.strip() == state_filter.strip()]
-
     return df[["Provider Name", "City", "State", "Last Updated", "Reason", "Removal Date"]]
 
 # ----------------------------
 # Routes
 # ----------------------------
 
+@app.route("/")
+def index():
+    token = os.environ.get("MAPBOX_TOKEN") or "YOUR_LOCAL_MAPBOX_TOKEN"
+    return render_template("index.html", mapbox_token=token)
 
 @app.route("/api/providers")
 @app.route("/api/providers/<status>")
@@ -101,72 +91,40 @@ def removed_metrics():
     df = get_removals(state_filter)
     if df.empty:
         return jsonify({"total": 0, "states": {}})
-
     today = datetime.today().date()
     last_30 = today - timedelta(days=30)
     recent = df[df["Removal Date"] >= last_30]
-
     total = len(recent)
     states_count = recent["State"].value_counts().to_dict()
+    return jsonify({"total": total, "states": states_count})
 
-    return jsonify({
-        "total": total,
-        "states": states_count
-    })
-
-@app.route("/api/removed/timeseries")
 @app.route("/api/removed/timeseries")
 def removed_timeseries():
     state_filter = request.args.get("state")
     df_all = get_removals(None)
-
     if df_all.empty:
         return jsonify({"dates": [], "counts": [], "y_max": 0})
-
     df_all["Removal Date"] = pd.to_datetime(df_all["Removal Date"])
-
-    # Global month range
     min_month = df_all["Removal Date"].min().to_period("M")
     max_month = df_all["Removal Date"].max().to_period("M")
     all_months = pd.period_range(min_month, max_month, freq="M")
-
-    # Global max (all states)
-    global_monthly = (
-        df_all.groupby(df_all["Removal Date"].dt.to_period("M"))
-              .size()
-    )
+    global_monthly = df_all.groupby(df_all["Removal Date"].dt.to_period("M")).size()
     y_max = int(global_monthly.max())
-
-    # Apply state filter AFTER global calc
     df = df_all
     if state_filter:
         df = df[df["State"] == state_filter]
-
-    monthly = (
-        df.groupby(df["Removal Date"].dt.to_period("M"))
-          .size()
-          .reindex(all_months, fill_value=0)
-    )
-
-    return jsonify({
-        "dates": [p.strftime("%Y-%m") for p in all_months],
-        "counts": monthly.tolist(),
-        "y_max": y_max
-    })
-
-
+    monthly = df.groupby(df["Removal Date"].dt.to_period("M")).size().reindex(all_months, fill_value=0)
+    return jsonify({"dates": [p.strftime("%Y-%m") for p in all_months],
+                    "counts": monthly.tolist(),
+                    "y_max": y_max})
 
 @app.route("/api/providers/counts_by_state/<status>")
 def counts_by_state(status):
     df = load_data(status)
     if df.empty:
         return jsonify({})
-
-    state_map = {
-        "District of  Columbia": "District of Columbia",
-        "United States Minor Outlying Islands": "UM",
-    }
-
+    state_map = {"District of  Columbia": "District of Columbia",
+                 "United States Minor Outlying Islands": "UM"}
     counts = {}
     for state, cnt in df["State"].value_counts().items():
         clean_state = " ".join(state.split("(")[0].strip().split())
@@ -174,47 +132,25 @@ def counts_by_state(status):
         counts[geo_name] = cnt
     return jsonify(counts)
 
-
 # ----------------------------
-# Geocoding for Symbol Map
+# Geocoding
 # ----------------------------
-# ----------------------------
-# Geocoding for Symbol Map
-# ----------------------------
-from geopy.geocoders import Nominatim
-import pickle
-
-# Cache file path
 GEOCODE_CACHE = DATA_DIR / "outputs_current" / "city_coords.pkl"
 
-from geopy.geocoders import Nominatim
-import pickle
-import time
-
-from geopy.geocoders import Nominatim
-import pickle
-import time
-
-GEOCODE_CACHE = DATA_DIR / "outputs_current" / "city_coords.pkl"
 def load_geocoded_points(df):
     if not GEOCODE_CACHE.exists():
         return pd.DataFrame()
-
     with open(GEOCODE_CACHE, "rb") as f:
         cache = pickle.load(f)
-
     rows = []
     for _, r in df.iterrows():
         city = str(r["City"]).strip().title()
         state = str(r["PhysicalState"]).split("(")[0].strip()
         key = f"{city}, {state}"
-
         if key in cache and cache[key][0] is not None:
             lat, lon = cache[key]
             rows.append((city, state, lat, lon))
-
     return pd.DataFrame(rows, columns=["City", "PhysicalState", "lat", "lon"])
-
 
 @app.route("/api/providers/geocoded/<status>")
 def geocoded_providers(status):
@@ -225,27 +161,17 @@ def geocoded_providers(status):
     path = file_map.get(status)
     if not path or not path.exists():
         return jsonify([])
-
     df = pd.read_csv(path)
     df_geo = load_geocoded_points(df)
-
     if df_geo.empty:
         return jsonify([])
-
-    agg = (
-        df_geo.groupby(["City", "PhysicalState", "lat", "lon"])
-              .size()
-              .reset_index(name="count")
-    )
-
+    agg = df_geo.groupby(["City", "PhysicalState", "lat", "lon"]).size().reset_index(name="count")
     return jsonify(agg.to_dict(orient="records"))
-
-
 
 # ----------------------------
 # Entry Point
 # ----------------------------
-
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    debug = os.environ.get("FLASK_DEBUG", "0") == "1"
+    app.run(host="0.0.0.0", port=port, debug=debug)

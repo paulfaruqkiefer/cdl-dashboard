@@ -349,7 +349,7 @@ function loadProviderSymbols(status) {
             const { city, state, count } = e.features[0].properties;
             new mapboxgl.Popup({ closeButton: true, closeOnClick: true })
                 .setLngLat(e.lngLat)
-                .setHTML(`<strong>${city}, ${state}</strong><br>${count} provider${count === 1 ? "" : "s"} (informational)`)
+                .setHTML(`<strong>${city}, ${state}</strong><br>${count} provider${count === 1 ? "" : "s"} `)
                 .addTo(map);
         });
 
