@@ -2,25 +2,35 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>FMCSA CDL Training Providers Dashboard</title>
+    <title>CDL Training Providers Removed by State</title>
+
+    <!-- Mapbox -->
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+
+    <!-- DataTables -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
 
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;600&family=Source+Sans+Pro:wght@400;600&display=swap" rel="stylesheet">
 
-    <!-- Stylesheets -->
-    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+    <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
 
-    <!-- JS Libraries -->
+    <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+
+    <!-- DataTables JS -->
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+
+    <!-- Mapbox JS -->
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <!-- Inject Mapbox token -->
+    <!-- Inject MAPBOX_TOKEN from Flask -->
     <script>
-        const MAPBOX_TOKEN = "{{ mapbox_token }}";
+        const MAPBOX_TOKEN = "{{ mapbox_token }}";  
     </script>
 </head>
 <body>
@@ -97,15 +107,16 @@
         <div id="current-filter" style="text-align:center; margin:0.5rem 0; font-style: italic;"></div>
     </section>
 
-    <!-- Provider Table -->
-    <section id="provider-search" style="margin-top:3rem;">
-        <h2 style="text-align:center; margin-bottom:1rem;">Provider Search</h2>
-
-        <div id="table-controls" style="text-align:center; margin-bottom:1rem;">
-            <button id="clear-filter" style="padding: 0.5rem 1rem; font-size: 0.95rem; cursor:pointer;">Clear Filter</button>
+ <!-- Clear Filter Button -->
+        <div style="text-align:center; margin-top:1rem;">
+            <button id="clear-filter">Clear Filter</button>
         </div>
+    </section>
 
-        <table id="providers-table" class="display" style="width:100%; margin-top:1rem;">
+    <!-- Provider Table -->
+    <section id="provider-table-section">
+        <h2>Provider Search</h2>
+        <table id="providers-table" class="display">
             <thead>
                 <tr>
                     <th>Provider Name</th>
@@ -119,6 +130,7 @@
         </table>
     </section>
 
+  
     <!-- JS -->
     <script src="{{ url_for('static', filename='main.js') }}"></script>
 </main>
