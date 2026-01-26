@@ -1,88 +1,202 @@
+/* =========================
+   Global / Layout
+========================= */
+
 body {
-  font-family: Arial, sans-serif;
-  margin: 2rem;
+    font-family: 'EB Garamond', Georgia, serif;
+    color: #111;
+    margin: 2rem;
+    line-height: 1.6;
+    background-color: #fefefe;
 }
+
+main {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+
+h1, h2 {
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+}
+
+/* =========================
+   Headings
+========================= */
 
 h1 {
-  text-align: center;
-  margin-bottom: 1rem;
-}
-
-/* Center headers for map & recent removals */
-h2 {
+    font-family: 'Source Sans Pro', Arial, sans-serif;
+    font-size: 2.5rem;
+    font-weight: 700;
     text-align: center;
-    margin-top: 2rem;   /* space above header */
-    margin-bottom: 1rem; /* space below header */
 }
 
-/* Add extra space between main tables and recently removed section */
-#recent-removed-section {
-    margin-top: 3rem;
+h2 {
+    font-family: 'Source Sans Pro', Arial, sans-serif;
+    font-size: 1.9rem;
+    font-weight: 600;
+    text-align: center;
+    color: #333;
+    line-height: 1.4;
 }
 
-.dataTables_wrapper {
-  margin-top: 1rem;
+/* =========================
+   Removals Tracker / Chart
+========================= */
+
+#removals-tracker {
+    text-align: center;
+    margin-bottom: 2rem;
 }
+
+#removals-count {
+    font-size: 1.4rem;
+    margin-top: 0.5rem;
+}
+
+#removals-chart-wrapper {
+    max-width: 800px;
+    height: 250px;
+    margin: 1rem auto 2rem auto;
+}
+
+/* =========================
+   Map
+========================= */
 
 #state-map {
-  width: 80%;
-  height: 420px;
-    margin: 1.5rem auto 0 auto; /* center horizontally */
-  border: 1px solid #ccc;
-  border-radius: 6px;
+    width: 100%;
+    max-width: 900px;
+    height: 450px;
+    margin: 2rem auto;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
 }
 
-/* Remove black focus rectangle around states */
+/* Remove black focus rectangle */
 .leaflet-interactive:focus {
     outline: none !important;
 }
 
-/* Container to center toggle buttons */
+/* =========================
+   Toggle Buttons
+========================= */
+
 .toggle-buttons {
     display: flex;
     justify-content: center;
     margin: 1.5rem 0;
 }
 
-/* Base button style */
 .toggle-buttons button {
+    font-family: 'Source Sans Pro', sans-serif;
     border: 1px solid #ccc;
-    background-color: #f0f0f0;
+    background-color: #fff;
     padding: 0.6rem 1.5rem;
     cursor: pointer;
-    font-size: 1rem;
-    margin: 0;
-    outline: none;
-    transition: background-color 0.2s, color 0.2s;
-    min-width: 120px;          /* consistent width */
-    text-align: center;
+    transition: all 0.2s ease-in-out;
+    min-width: 120px;
+    font-weight: 500;
 }
 
-/* Left button: round left corners only */
-.toggle-buttons button:first-child {
-    border-radius: 12px 0 0 12px;
-    border-right: none; /* remove double border where buttons touch */
-}
-
-/* Right button: round right corners only */
+/* No rounded corners for "switch" look */
+.toggle-buttons button:first-child,
 .toggle-buttons button:last-child {
-    border-radius: 0 12px 12px 0;
+    border-radius: 0;
 }
 
-/* Highlight selected button */
+.toggle-buttons button:not(:last-child) {
+    border-right: none;
+}
+
 .toggle-buttons button.active {
-    background-color: #2171b5;
-    color: white;
+    background-color: #111;
+    color: #fff;
+    border-color: #111;
     font-weight: 600;
-    box-shadow: inset 0 -2px 0 rgba(0,0,0,0.2); /* subtle pressed effect */
 }
 
-/* Hover effect for non-active buttons */
 .toggle-buttons button:hover:not(.active) {
-    background-color: #dbe9f7;
+    background-color: #f5f5f5;
 }
 
-/* Optional: subtle focus outline for accessibility */
 .toggle-buttons button:focus {
     box-shadow: 0 0 0 3px rgba(33,113,181,0.3);
+}
+
+/* =========================
+   Circle Toggles
+========================= */
+
+.circle-toggle {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 1px solid #333;
+    background-color: #fff; /* off */
+    cursor: pointer;
+    margin-left: 0.5rem;
+    vertical-align: middle;
+    transition: background-color 0.2s, transform 0.2s;
+}
+
+.circle-toggle.active {
+    background-color: #000; /* on */
+}
+
+.circle-toggle:hover {
+    transform: scale(1.2);
+}
+
+/* =========================
+   Clear Filter Button
+========================= */
+
+#clear-filter {
+    padding: 0.5rem 1.2rem;
+    font-size: 0.95rem;
+    font-family: 'Source Sans Pro', sans-serif;
+    background-color: #444;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+#clear-filter:hover {
+    background-color: #666;
+    transform: translateY(-1px);
+}
+
+/* =========================
+   DataTables
+========================= */
+
+table.dataTable {
+    border-collapse: separate !important;
+    border-spacing: 0 8px;
+    width: 100%;
+    font-family: 'EB Garamond', Georgia, serif;
+    font-size: 0.95rem;
+}
+
+table.dataTable thead th {
+    background-color: #f7f7f7;
+    font-weight: 600;
+    border-bottom: 1px solid #ccc;
+    padding: 0.75rem 0.5rem;
+    text-align: left;
+}
+
+table.dataTable tbody td {
+    border-bottom: 1px solid #eee;
+    padding: 0.6rem 0.5rem;
+}
+
+#providers-table tbody tr:hover {
+    background-color: #f5f5f5;
 }

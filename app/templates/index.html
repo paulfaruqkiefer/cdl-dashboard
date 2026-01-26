@@ -1,82 +1,126 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>CDL Providers</title>
+    <meta charset="UTF-8">
+    <title>FMCSA CDL Training Providers Dashboard</title>
 
-  <!-- DataTables CSS -->
-  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;600&family=Source+Sans+Pro:wght@400;600&display=swap" rel="stylesheet">
 
-  <!-- Custom CSS -->
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <!-- Stylesheets -->
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
 
-  <!-- Mapbox GL JS CSS & JS -->
-  <link href="https://api.mapbox.com/mapbox-gl-js/v2.22.0/mapbox-gl.css" rel="stylesheet" />
-  <script src="https://api.mapbox.com/mapbox-gl-js/v2.22.0/mapbox-gl.js"></script>
+    <!-- JS Libraries -->
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-  <!-- Leaflet CSS & JS (optional fallback) -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
-  <!-- Inline CSS for special styles -->
-  <style>
-    /* Highlight status */
-    .status-in-review { background-color: #fff3cd; }
-    .status-removed { background-color: #f8d7da; }
-
-    /* Center headers */
-    h1, h2 {
-      text-align: center;
-      margin-top: 5rem;
-      margin-bottom: 3rem;
-    }
-
-    /* Map height */
-    #state-map {
-      height: 420px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      margin-bottom: 1rem;
-    }
-  </style>
+    <!-- Inject Mapbox token -->
+    <script>
+        const MAPBOX_TOKEN = "{{ mapbox_token }}";
+    </script>
 </head>
 <body>
-  <main>
-    <h1>CDL Training Providers</h1>
+<main>
 
-    <div class="toggle-buttons">
-      <button id="btn-in-review" class="active">In Review</button>
-      <button id="btn-removed">Removed</button>
-    </div>
+    <!-- Page Title -->
+    <header style="text-align:center; margin-bottom:2rem;">
+        <h1>FMCSA CDL Training Providers Dashboard</h1>
+        <p style="max-width: 800px; margin: 0.5rem auto; font-size:1rem; line-height:1.5; color:#333;">
+            This dashboard tracks the Federal Motor Carrier Safety Administration's (FMCSA) review and removal of accredited Commercial Driver's License (CDL) training providers from its certification registry. 
+        </p>
+    </header>
 
-    <h2>Providers by State</h2>
-    <div id="state-map"></div>
-    <p id="state-count">Click a state to filter</p>
+    <!-- Background / Context -->
+    <section id="background" style="max-width:800px; margin:2rem auto; font-size:1rem; line-height:1.6; color:#333;">
+        <h2>Background</h2>
+        <p>
+            The FMCSA began removing thousands of CDL training providers from its certification registry in the fall of 2025. Transportation Secretary Sean Duffy argued the purge was necessary to reign in "illegal and reckless practices that let poorly trained drivers get behind the wheel of semi-trucks and school buses," referring to a decades-long pattern of fraudulent licensing practices in the commercial trucking industry. 
+            The move came on the heels of the Department of Transportation's introduction of new rules limiting which classes of immigrants are eligible for CDLs, though a federal appeals court paused the implementation of those rules last November.
+        </p>
+        
+        <p>
+            Many of the removed providers were small businesses and municipal governments that occasionally trained employees to operate commercial vehicles. Many others had not provided training services in years, if ever. Critics of the FMCSA's actions have argued that the agency's review process has been haphazard and unfair, with many providers being removed without clear explanation or opportunity for appeal.
+        </p>
+        <p>
+          While California, Texas and Illinois saw the largest number of removals in absolute terms, when adjusted for the number of active providers in each state, states like Kansas, Washington and Wisconsin saw higher removal rates relative to the total number of accredited CDL training providers in those states.
+        </p>
+    </section>
 
-    <table id="providers-table" class="display" style="width:100%">
-      <thead>
-        <tr>
-          <th>Provider Name</th>
-          <th>City</th>
-          <th>State</th>
-          <th>Last Updated</th>
-          <th>Reason</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </main>
+    <!-- Recent Removals -->
+    <section id="removals-tracker" style="text-align:center; margin-bottom:3rem;">
+        <h2>Providers Removed in the Last 30 Days</h2>
 
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <!-- State Filter -->
+        <div style="margin-bottom:1rem;">
+            <label for="state-select" style="font-weight:600;">Filter by state:</label>
+            <select id="state-select">
+                <option value="">All states</option>
+            </select>
+        </div>
 
-  <!-- jQuery & DataTables JS -->
-  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+        <!-- Total Removed -->
+        <div id="removals-count" style="font-size:1.5rem; margin-bottom:1rem;">
+            Total removed in last 30 days: <span id="total-removed">0</span>
+        </div>
 
-  <!-- Custom JS -->
-  <script src="{{ url_for('static', filename='main.js') }}"></script>
+        <!-- Chart -->
+        <div id="removals-chart-wrapper">
+            <canvas id="removals-chart"></canvas>
+        </div>
+    </section>
+
+    <!-- Providers by State -->
+    <section id="providers-by-state">
+        <h2 style="text-align:center; margin-bottom:1rem;">Total Providers Removed or Under Review by State</h2>
+
+        <!-- Toggle Buttons -->
+        <div class="toggle-buttons" style="margin-bottom:1rem;">
+            <button id="btn-removed" class="active">Removed</button>
+            <button id="btn-in-review">Under Review</button>
+        </div>
+
+        <!-- Layer Toggles -->
+        <div class="filter-buttons" style="text-align:center; margin-bottom:1rem;">
+            <span>Show Removed Providers</span>
+            <span id="toggle-removed" class="circle-toggle active"></span>
+            <span style="margin-left:1rem;">Show In-Review Providers</span>
+            <span id="toggle-in-review" class="circle-toggle active"></span>
+        </div>
+
+
+        <!-- Map -->
+        <div id="state-map"></div>
+        <div id="current-filter" style="text-align:center; margin:0.5rem 0; font-style: italic;"></div>
+    </section>
+
+    <!-- Provider Table -->
+    <section id="provider-search" style="margin-top:3rem;">
+        <h2 style="text-align:center; margin-bottom:1rem;">Provider Search</h2>
+
+        <div id="table-controls" style="text-align:center; margin-bottom:1rem;">
+            <button id="clear-filter" style="padding: 0.5rem 1rem; font-size: 0.95rem; cursor:pointer;">Clear Filter</button>
+        </div>
+
+        <table id="providers-table" class="display" style="width:100%; margin-top:1rem;">
+            <thead>
+                <tr>
+                    <th>Provider Name</th>
+                    <th>City</th>
+                    <th>State</th>
+                    <th>Last Updated</th>
+                    <th>Reason</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </section>
+
+    <!-- JS -->
+    <script src="{{ url_for('static', filename='main.js') }}"></script>
+</main>
 </body>
 </html>
-
-

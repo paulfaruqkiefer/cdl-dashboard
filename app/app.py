@@ -1,37 +1,66 @@
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 import pandas as pd
 import os
-import glob
 from pathlib import Path
-
-# ----------------------------
-# App + paths
-# ----------------------------
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 
-# Project root (…/cdl-dashboard)
-BASE_DIR = Path(__file__).resolve().parent.parent
+@app.route("/")
+def index():
+    # Look for token in environment variable, or provide a default for local dev
+    token = os.environ.get("MAPBOX_TOKEN") or "YOUR_LOCAL_MAPBOX_TOKEN"
+    return render_template("index.html", mapbox_token=token)
 
-# data/
+BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 
 # ----------------------------
 # Helpers
 # ----------------------------
 
-def latest_file(folder, pattern="*.csv"):
-    """Return the latest file in a folder matching a pattern, or None."""
-    files = glob.glob(str(Path(folder) / pattern))
-    if not files:
-        return None
-    return max(files, key=os.path.getmtime)
-
 def simplify_df(df, status_label):
+    """Standardize column names, keep Last Updated as string for tables."""
+    df = df.rename(columns={
+        "Name": "Provider Name",
+        "PhysicalState": "State",
+        "ProviderUpdatedOn": "Last Updated",
+        "RemoveReason": "Reason"
+    })
+    if "City" in df.columns:
+        df["City"] = df["City"].str.title()
+    df["Last Updated"] = pd.to_datetime(df["Last Updated"], errors="coerce").dt.date.astype(str)
+    df["Status"] = status_label
+    return df[["Provider Name", "City", "State", "Last Updated", "Reason", "Status"]]
+
+def load_data(status=None):
+    dfs = []
+
+    if status in [None, "in_review"]:
+        in_review_file = DATA_DIR / "outputs_in_review" / "master_fmcsa_in_review.csv"
+        if in_review_file.exists():
+            dfs.append(simplify_df(pd.read_csv(in_review_file), "In Review"))
+
+    if status in [None, "removed"]:
+        removed_file = DATA_DIR / "outputs_removed" / "master_fmcsa_removed.csv"
+        if removed_file.exists():
+            dfs.append(simplify_df(pd.read_csv(removed_file), "Removed"))
+
+    if dfs:
+        return pd.concat(dfs, ignore_index=True).fillna("")
+    return pd.DataFrame(columns=["Provider Name", "City", "State", "Last Updated", "Reason", "Status"])
+
+
+def get_removals(state_filter=None):
     """
-    Standardize column names, simplify 'Last Updated', title-case city names,
-    and add Status column.
+    Return all removed providers (for metrics or chart), optionally filtered by state.
+    Handles CSV state formats like 'CA (California)'.
     """
+    removed_file = DATA_DIR / "outputs_removed" / "master_fmcsa_removed.csv"
+    if not removed_file.exists():
+        return pd.DataFrame(columns=["Provider Name", "City", "State", "Last Updated", "Reason", "Removal Date"])
+
+    df = pd.read_csv(removed_file)
     df = df.rename(columns={
         "Name": "Provider Name",
         "PhysicalState": "State",
@@ -39,116 +68,184 @@ def simplify_df(df, status_label):
         "RemoveReason": "Reason"
     })
 
-    # Simplify Last Updated to YYYY-MM-DD
-    df["Last Updated"] = (
-        pd.to_datetime(df["Last Updated"], errors="coerce")
-        .dt.date
-        .astype(str)
-    )
-
-    # Title-case city names
     if "City" in df.columns:
         df["City"] = df["City"].str.title()
 
-    df["Status"] = status_label
+    df["Removal Date"] = pd.to_datetime(df["Last Updated"], errors="coerce").dt.date
 
-    return df[["Provider Name", "City", "State", "Last Updated", "Reason", "Status"]]
+    # Normalize state name to plain form
+    df["State"] = (
+    df["State"]
+      .str.replace(r"\s*\([A-Z]{2}\)$", "", regex=True)
+      .str.strip()
+)
 
-def load_data(status=None):
-    """
-    Load latest CSVs.
-    status: 'in_review', 'removed', or None for both combined.
-    """
-    dataframes = []
+    if state_filter:
+        df = df[df["State"].str.strip() == state_filter.strip()]
 
-    # In Review
-    if status in [None, "in_review"]:
-        in_review_csv = latest_file(DATA_DIR / "outputs_in_review")
-        if in_review_csv:
-            df_in_review = pd.read_csv(in_review_csv)
-            df_in_review = simplify_df(df_in_review, "In Review")
-            dataframes.append(df_in_review)
-
-    # Removed
-    if status in [None, "removed"]:
-        removed_csv = latest_file(DATA_DIR / "outputs_removed")
-        if removed_csv:
-            df_removed = pd.read_csv(removed_csv)
-            df_removed = simplify_df(df_removed, "Removed")
-            dataframes.append(df_removed)
-
-    if dataframes:
-        combined = pd.concat(dataframes, ignore_index=True)
-        combined.fillna("", inplace=True)
-        return combined
-
-    return pd.DataFrame(
-        columns=["Provider Name", "City", "State", "Last Updated", "Reason", "Status"]
-    )
+    return df[["Provider Name", "City", "State", "Last Updated", "Reason", "Removal Date"]]
 
 # ----------------------------
 # Routes
 # ----------------------------
 
-@app.route("/")
-def index():
-    return render_template("index.html")
 
 @app.route("/api/providers")
 @app.route("/api/providers/<status>")
 def providers_api(status=None):
+    return jsonify(load_data(status).to_dict(orient="records"))
+
+@app.route("/api/removed/metrics")
+def removed_metrics():
+    state_filter = request.args.get("state")
+    df = get_removals(state_filter)
+    if df.empty:
+        return jsonify({"total": 0, "states": {}})
+
+    today = datetime.today().date()
+    last_30 = today - timedelta(days=30)
+    recent = df[df["Removal Date"] >= last_30]
+
+    total = len(recent)
+    states_count = recent["State"].value_counts().to_dict()
+
+    return jsonify({
+        "total": total,
+        "states": states_count
+    })
+
+@app.route("/api/removed/timeseries")
+@app.route("/api/removed/timeseries")
+def removed_timeseries():
+    state_filter = request.args.get("state")
+    df_all = get_removals(None)
+
+    if df_all.empty:
+        return jsonify({"dates": [], "counts": [], "y_max": 0})
+
+    df_all["Removal Date"] = pd.to_datetime(df_all["Removal Date"])
+
+    # Global month range
+    min_month = df_all["Removal Date"].min().to_period("M")
+    max_month = df_all["Removal Date"].max().to_period("M")
+    all_months = pd.period_range(min_month, max_month, freq="M")
+
+    # Global max (all states)
+    global_monthly = (
+        df_all.groupby(df_all["Removal Date"].dt.to_period("M"))
+              .size()
+    )
+    y_max = int(global_monthly.max())
+
+    # Apply state filter AFTER global calc
+    df = df_all
+    if state_filter:
+        df = df[df["State"] == state_filter]
+
+    monthly = (
+        df.groupby(df["Removal Date"].dt.to_period("M"))
+          .size()
+          .reindex(all_months, fill_value=0)
+    )
+
+    return jsonify({
+        "dates": [p.strftime("%Y-%m") for p in all_months],
+        "counts": monthly.tolist(),
+        "y_max": y_max
+    })
+
+
+
+@app.route("/api/providers/counts_by_state/<status>")
+def counts_by_state(status):
     df = load_data(status)
-    return jsonify(df.to_dict(orient="records"))
+    if df.empty:
+        return jsonify({})
 
-def load_removals():
-    """
-    Compare master CSVs and return providers that shifted from In Review → Removed.
-    """
-    in_review_master = DATA_DIR / "outputs_in_review" / "master_fmcsa_in_review.csv"
-    removed_master = DATA_DIR / "outputs_removed" / "master_fmcsa_removed.csv"
+    state_map = {
+        "District of  Columbia": "District of Columbia",
+        "United States Minor Outlying Islands": "UM",
+    }
 
-    if not in_review_master.exists() or not removed_master.exists():
-        return pd.DataFrame(
-            columns=["Provider Name", "City", "State", "Last Updated", "Reason", "Removal Date"]
-        )
+    counts = {}
+    for state, cnt in df["State"].value_counts().items():
+        clean_state = " ".join(state.split("(")[0].strip().split())
+        geo_name = state_map.get(clean_state, clean_state)
+        counts[geo_name] = cnt
+    return jsonify(counts)
 
-    df_in_review = pd.read_csv(in_review_master)
-    df_removed = pd.read_csv(removed_master)
-
-    # Providers in Removed that were previously In Review
-    in_review_ids = set(df_in_review["Name"])
-    shifted = df_removed[df_removed["Name"].isin(in_review_ids)].copy()
-
-    if not shifted.empty:
-        shifted = shifted.rename(columns={
-            "Name": "Provider Name",
-            "PhysicalState": "State",
-            "ProviderUpdatedOn": "Last Updated",
-            "RemoveReason": "Reason"
-        })
-
-        shifted["City"] = shifted["City"].str.title()
-        shifted["Removal Date"] = (
-            pd.to_datetime(shifted["Last Updated"], errors="coerce")
-            .dt.date
-            .astype(str)
-        )
-
-        shifted = shifted[
-            ["Provider Name", "City", "State", "Last Updated", "Reason", "Removal Date"]
-        ]
-
-    return shifted
-
-@app.route("/api/removals")
-def removals_api():
-    df = load_removals()
-    return jsonify(df.to_dict(orient="records"))
 
 # ----------------------------
-# Entry point (Render-safe)
+# Geocoding for Symbol Map
+# ----------------------------
+# ----------------------------
+# Geocoding for Symbol Map
+# ----------------------------
+from geopy.geocoders import Nominatim
+import pickle
+
+# Cache file path
+GEOCODE_CACHE = DATA_DIR / "outputs_current" / "city_coords.pkl"
+
+from geopy.geocoders import Nominatim
+import pickle
+import time
+
+from geopy.geocoders import Nominatim
+import pickle
+import time
+
+GEOCODE_CACHE = DATA_DIR / "outputs_current" / "city_coords.pkl"
+def load_geocoded_points(df):
+    if not GEOCODE_CACHE.exists():
+        return pd.DataFrame()
+
+    with open(GEOCODE_CACHE, "rb") as f:
+        cache = pickle.load(f)
+
+    rows = []
+    for _, r in df.iterrows():
+        city = str(r["City"]).strip().title()
+        state = str(r["PhysicalState"]).split("(")[0].strip()
+        key = f"{city}, {state}"
+
+        if key in cache and cache[key][0] is not None:
+            lat, lon = cache[key]
+            rows.append((city, state, lat, lon))
+
+    return pd.DataFrame(rows, columns=["City", "PhysicalState", "lat", "lon"])
+
+
+@app.route("/api/providers/geocoded/<status>")
+def geocoded_providers(status):
+    file_map = {
+        "removed": DATA_DIR / "outputs_removed" / "master_fmcsa_removed.csv",
+        "in_review": DATA_DIR / "outputs_in_review" / "master_fmcsa_in_review.csv"
+    }
+    path = file_map.get(status)
+    if not path or not path.exists():
+        return jsonify([])
+
+    df = pd.read_csv(path)
+    df_geo = load_geocoded_points(df)
+
+    if df_geo.empty:
+        return jsonify([])
+
+    agg = (
+        df_geo.groupby(["City", "PhysicalState", "lat", "lon"])
+              .size()
+              .reset_index(name="count")
+    )
+
+    return jsonify(agg.to_dict(orient="records"))
+
+
+
+# ----------------------------
+# Entry Point
 # ----------------------------
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port, debug=True)
