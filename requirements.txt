@@ -4,4 +4,8 @@ pandas
 requests
 beautifulsoup4
 tqdm
+<<<<<<< Updated upstream
 geopy
+=======
+geopy>=2.5,<3
+>>>>>>> Stashed changes
