@@ -12,8 +12,8 @@ app = Flask(__name__)
 # ----------------------------
 # Paths & Environment
 # ----------------------------
-BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / "data"
+BASE_DIR = Path(__file__).resolve().parent.parent  # moves up one level
+DATA_DIR = Path("/data")
 
 # ----------------------------
 # Helpers
