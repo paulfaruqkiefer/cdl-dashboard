@@ -4,5 +4,5 @@ pandas
 requests
 beautifulsoup4
 tqdm
-geopy>=2.5,<3
+geopy==2.4.1
 
